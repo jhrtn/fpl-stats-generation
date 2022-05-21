@@ -158,7 +158,7 @@ def get_chip_info(gw_data):
     last_chip_gw = -1
     last_chip_type = -1
 
-  return only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type
+  return only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type, wildcard_data
   
 def get_captain_info(team_data):
   cap_points_zip = list(zip(team_data[team_data['is_captain'] == True]['total_points'], team_data[team_data['is_captain'] == True]['points_multiplier']))
@@ -207,6 +207,25 @@ def generate_files(id):
   print(f"Generate for id {id}")
   data = get_gw_info(id)
   squad_data = get_full_squad_breakdown(id)
+
+def get_longest_h2h_win_streak(all_gameweeks, player_id):
+  player_res = all_gameweeks[all_gameweeks['id'] == player_id]
+  player_res = player_res.sort_values(['gw'])
+  player_res['won'] = (player_res['won_head_to_head'] == 'true').astype(bool)
+  m = player_res.won.astype(bool)
+  player_res['streak'] = (m.groupby([m, (~m).cumsum().where(m)]).cumcount().add(1).mul(m))
+  longest_streak_ends_gw = player_res[player_res['streak'] == player_res['streak'].max()]
+  run_length = longest_streak_ends_gw['streak'].array[0]
+  end_gw = longest_streak_ends_gw['gw'].array[0]
+  start_gw = end_gw - run_length + 1
+  data = {
+    'manager': name,
+    'player_id': player_id, 
+    'run_length': run_length,
+    'start_gw': start_gw,
+    'end_gw': end_gw
+  }
+  return data
 
 #%%
 # -====-====-====-====-====-====-====-====-
@@ -267,7 +286,7 @@ for index, player in enumerate(classic_reults):
       print("No file found, generating squad data")
       squad_data = get_full_squad_breakdown(id)
 
-    only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type = get_chip_info(data)
+    only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type, wildcard_data = get_chip_info(data)
 
     most_picked_captain, num_times_picked, captain_points = get_captain_info(squad_data)
     
@@ -308,12 +327,12 @@ for index, player in enumerate(classic_reults):
       'points_on_bench': data['points_on_bench'].sum(),
       'points_on_bench_max': data['points_on_bench'].max(),
       'points_on_bench_max_gw': data.loc[data['points_on_bench'] == data['points_on_bench'].max()]['event'].iat[0],
-      # avg_points_after_wildcard
-      # avg_points_before_wildcard
+      'avg_points_before_wildcard': wildcard_data['avg_before_wildcard'],
+      'avg_points_after_wildcard': wildcard_data['avg_after_wildcard'],
       'best_gw_rank': data['rank'].min(),
       'best_gw_rank_score': data[data['rank'] == data['rank'].min()]['points'].array[0],
       'best_gw_rank_gw': data.loc[data['rank'] == data['rank'].min()]['event'].array[0],
-      # cup_run_length
+      'cup_run_length': len(team_info['leagues']['cup']['matches']),
       'first_chip': chip_type,
       'first_chip_gw': first_chip_gw,
       'last_chip': last_chip_type,
@@ -346,12 +365,12 @@ for index, player in enumerate(classic_reults):
       'rank_last_season': last_season_rank,
       'points_last_season': last_season_points,
       'percentage_points_change_last_season': round(((total_points - last_season_points) / last_season_points) * 100, 2),
-      # total_apps_in_dreamteam
+      'total_apps_in_dreamteam': squad_data['in_dreamteam'].sum(),
       'total_minutes_fielded': squad_data['minutes'].sum(),
       'total_num_red_cards': squad_data['red_cards'].sum(),
       'total_num_yellow_cards': squad_data['yellow_cards'].sum(),
       'total_minutes_perct_of_possible': round((squad_data['minutes'].sum() / MAX_SQUAD_MINUTES) * 100, 1),
-      # total_score_if_no_hits_taken
+      'total_score_if_no_hits_taken': total_points + data['event_transfers_cost'].sum(),
       'worst_gw_rank': data['rank'].max(),
       'worst_gw_rank_score': data[data['rank'] == data['rank'].max()]['points'].array[0],
       'worst_gw_rank_gw': data.loc[data['rank'] == data['rank'].max()]['event'].array[0],
