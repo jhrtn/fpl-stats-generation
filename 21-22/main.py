@@ -160,6 +160,15 @@ def get_chip_info(gw_data):
 
   return only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type
   
+def get_captain_info(team_data):
+  cap_points_zip = list(zip(team_data[team_data['is_captain'] == True]['total_points'], team_data[team_data['is_captain'] == True]['points_multiplier']))
+  captain_points = sum(list(map(lambda p: p[0] * p[1], cap_points_zip)))
+  
+  captains = team_data[team_data['is_captain'] == True]
+  most_picked_captain_id = captains['player_id'].value_counts().index[0]
+  num_times_picked = captains['player_id'].value_counts().tolist()[0]
+  most_picked_captain = list(filter(lambda p: p['id'] == most_picked_captain_id, bootstrap_elements))[0]['web_name']
+  return most_picked_captain, num_times_picked, captain_points
 
 #%%
 # -====-====-====-====-====-====-====-====-
