@@ -170,6 +170,11 @@ def get_captain_info(team_data):
   most_picked_captain = list(filter(lambda p: p['id'] == most_picked_captain_id, bootstrap_elements))[0]['web_name']
   return most_picked_captain, num_times_picked, captain_points
 
+def generate_files(id):
+  print(f"Generate for id {id}")
+  data = get_gw_info(id)
+  squad_data = get_full_squad_breakdown(id)
+
 #%%
 # -====-====-====-====-====-====-====-====-
 # Get all global data to use in stats generation
