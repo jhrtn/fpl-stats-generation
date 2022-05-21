@@ -27,7 +27,13 @@ def get_gw_info(player_id):
       if gw['event'] == chip['event']:
         gw['used_chip'] = chip['name']
   
-  return pd.DataFrame(current)
+  if not (os.path.exists(BASE_DIR)):
+    os.mkdir(BASE_DIR)
+  full_path = os.path.join(BASE_DIR, str(player_id) + GW_INFO_EXT)
+  df = pd.DataFrame(current)
+  df.to_csv(full_path, index=False)
+  
+  return df
   
 def get_name(row):
     name = list(filter(lambda p: p['player_id'] == row['id'], player_info))[0]['name']
@@ -102,10 +108,19 @@ def get_full_squad_breakdown(player_id):
       }
       df = df.append(played_players_list, ignore_index=True)
     gw += 1
+  
+  
+  if not (os.path.exists(BASE_DIR)):
+    os.mkdir(BASE_DIR)
+  full_path = os.path.join(BASE_DIR, str(player_id) + TEAM_INFO_EXT)
+  df.to_csv(full_path, index=False)
+
   return df
 
 #%%
-# get all global data to use in stats generation
+# -====-====-====-====-====-====-====-====-
+# Get all global data to use in stats generation
+# -====-====-====-====-====-====-====-====-
 classic_league_id = 603941
 h2h_league_id = 652857
 
@@ -120,18 +135,38 @@ h2h_results = h2h_data['standings']['results']
 
 bootstrap_data = requests.get(bootstrap_url).json()
 bootstrap_elements = bootstrap_data['elements']
+TOTAL_PLAYERS = bootstrap_data['total_players']
 
 # %%
-
+# -====-====-====-====-====-====-====-====-
+# Main entry point for stats generation
+# -====-====-====-====-====-====-====-====-
 for index, player in enumerate(classic_reults):
   id = player['entry']
+
   if (list(map(lambda p: p['entry'] == id, h2h_results))):
     if (index > 0): break
     name = player['player_name']
     print(f'running for {name}')
     
     team_info = requests.get(f'https://fantasy.premierleague.com/api/entry/{id}/').json()
+        
+    # Open or create Gameweek info stats
+    try:
+      f1 = open(get_gw_path(id))
+      data = pd.read_csv(f1)
+    except:
+      print("No file found, generating gw info")
+      data = get_gw_info(id)
     
+    # Open or create detailed squad info
+    try:
+      f2 = open(get_team_info_path(id))
+      squad_data = pd.read_csv(f2)
+    except:
+      print("No file found, generating squad data")
+      squad_data = get_full_squad_breakdown(id)
+
     current = {
       'manager': name,
       'player_id': id,
