@@ -4,8 +4,18 @@ import requests
 import pandas as pd
 import numpy as np
 import json
+import os
 
 # %%
+
+BASE_DIR = "data"
+GW_INFO_EXT = "_gw_info.csv"
+TEAM_INFO_EXT = "_team_info_detailed.csv"
+
+NUM_GAMEWEEKS = 38
+MAX_PLAYER_MINUTES = NUM_GAMEWEEKS * 90
+MAX_SQUAD_MINUTES = MAX_PLAYER_MINUTES * 11 + (4 * 90 * 2) # extra 4 players for bench boost
+TOTAL_PLAYERS = -1
 
 def get_gw_info(player_id):
   player_history_url = f'https://fantasy.premierleague.com/api/entry/{player_id}/history/'
