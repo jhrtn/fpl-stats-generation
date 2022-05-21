@@ -117,6 +117,50 @@ def get_full_squad_breakdown(player_id):
 
   return df
 
+def get_gw_path(id): return f'{BASE_DIR}/{id}{GW_INFO_EXT}'
+def get_team_info_path(id): return f'{BASE_DIR}/{id}{TEAM_INFO_EXT}'
+
+def get_chip_info(gw_data):
+  only_chip_weeks = 0
+  # manager used a chip
+  if 'used_chip' in gw_data:
+    only_chip_weeks = gw_data[gw_data['used_chip'].notnull()]
+    first_chip = only_chip_weeks.sort_values(['event'], ascending=True)[:1]
+    first_chip_gw = first_chip['event'].iat[0]
+    chip_type = first_chip['used_chip'].iat[0]
+    last_chip = only_chip_weeks.sort_values(['event'], ascending=True)[-1:]
+    last_chip_gw = last_chip['event'].iat[0]
+    last_chip_type = last_chip['used_chip'].iat[0]
+
+    chip = 'wildcard'
+    wildcard_gw_nums = list(gw_data.loc[gw_data['used_chip'] == chip]['event'])
+    if len(wildcard_gw_nums) > 0:
+      for gw in wildcard_gw_nums:
+        gw_index = gw - 1
+        gw_count = 1
+        avg_before_wildcard = round(gw_data[gw_index-gw_count:gw_index]['points'].mean(),1)
+        avg_after_wildcard = round(gw_data[gw_index:gw_index+gw_count]['points'].mean(), 1)
+        wildcard_data = {
+          'name': name, 
+          'gw': gw, 
+          f'avg_before_wildcard': avg_before_wildcard, 
+          f'avg_after_wildcard': avg_after_wildcard,
+          'diff': avg_after_wildcard - avg_before_wildcard,
+          'perct_change': round(((avg_after_wildcard - avg_before_wildcard) / avg_before_wildcard) * 100, 2)
+        }
+  else:
+    # no chips used
+    only_chip_weeks = []
+    first_chip = -1
+    first_chip_gw = -1
+    chip_type = -1
+    last_chip = -1
+    last_chip_gw = -1
+    last_chip_type = -1
+
+  return only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type
+  
+
 #%%
 # -====-====-====-====-====-====-====-====-
 # Get all global data to use in stats generation
