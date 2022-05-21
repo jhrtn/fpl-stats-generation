@@ -77,7 +77,7 @@ def get_full_squad_breakdown(player_id):
   teams = bootstrap_data['teams']
   gw = 1
   df = pd.DataFrame()
-  while gw <= 2:
+  while gw <= 8:
     squad = requests.get(f'https://fantasy.premierleague.com/api/entry/{player_id}/event/{gw}/picks/#/').json()
     played_players = list(filter(lambda element: element['multiplier'] > 0, squad['picks']))
     played_players_list = []
@@ -267,21 +267,102 @@ for index, player in enumerate(classic_reults):
       print("No file found, generating squad data")
       squad_data = get_full_squad_breakdown(id)
 
+    only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type = get_chip_info(data)
+
+    most_picked_captain, num_times_picked, captain_points = get_captain_info(squad_data)
+    
+    num_unique_players, differential_points, unique_player_names = get_unique_squad_players(id, squad_data, both_league_managers)
+
+    
+    manager_history = requests.get(f'https://fantasy.premierleague.com/api/entry/{id}/history/#/').json()
+    past_leagues = manager_history['past']
+    
+    # check whether this season has already been added, if so this should be 1
+    if len(past_leagues) == 0:
+      last_season_points = 0
+      last_season_rank = 0
+    else:
+      # if league hasn't yet been added these should be -1
+      # or search by season_name '2020/21'
+      last_season_points = past_leagues[-2]['total_points']
+      last_season_rank = past_leagues[-2]['rank']
+
+    total_points = team_info['summary_overall_points']
+
     current = {
       'manager': name,
       'player_id': id,
       'team_name': player['entry_name'],
-      'total_score': team_info['summary_overall_points'],
-      'final_overall_rank': team_info['summary_overall_rank'],      
+      'total_score': total_points,
+      'final_overall_rank': team_info['summary_overall_rank'],
+      'final_main_league_rank': list(filter(lambda league: league['id'] == classic_league_id, team_info['leagues']['classic']))[0]['entry_rank'],
+      'final_h2h_league_rank': list(filter(lambda league: league['id'] == h2h_league_id, team_info['leagues']['h2h']))[0]['entry_rank'],
+      'best_rank': data['overall_rank'].min(),
+      'best_rank_gw': data.loc[data['overall_rank'] == data['overall_rank'].min()]['event'].array[0],
+      'transfer_count': data['event_transfers'].sum(),
+      'transfer_hit': data['event_transfers_cost'].sum(),
+      'most_cash_banked': data['bank'].max(),
+      'most_cash_banked_formatted': str(data['bank'].max() / 10) + 'M',
+      'most_cash_banked_gw': data.loc[data['bank'] == data['bank'].max()]['event'].iat[0],
+      'avg_gw_score': round(total_points / NUM_GAMEWEEKS, 1),
+      'points_on_bench': data['points_on_bench'].sum(),
+      'points_on_bench_max': data['points_on_bench'].max(),
+      'points_on_bench_max_gw': data.loc[data['points_on_bench'] == data['points_on_bench'].max()]['event'].iat[0],
+      # avg_points_after_wildcard
+      # avg_points_before_wildcard
+      'best_gw_rank': data['rank'].min(),
+      'best_gw_rank_score': data[data['rank'] == data['rank'].min()]['points'].array[0],
+      'best_gw_rank_gw': data.loc[data['rank'] == data['rank'].min()]['event'].array[0],
+      # cup_run_length
+      'first_chip': chip_type,
+      'first_chip_gw': first_chip_gw,
+      'last_chip': last_chip_type,
+      'last_chip_gw': last_chip_gw,
+      'num_chips_played': len(only_chip_weeks),
+      # 'global_rank_percentage': check_position_percentage(data['overall_rank'].iat[37], TOTAL_PLAYERS),
+      # h2h_draw
+      # h2h_loss
+      # h2h_win
+      # h2h_wld
+      # longest_h2h_winning_streak
+      # longest_h2h_winning_streak_end_gw
+      # longest_h2h_winning_streak_start_gw
+      'max_team_value': data['value'].max(),
+      'max_team_value_formatted': str(data['value'].max() / 10) + 'M',
+      'max_team_value_gw': data.loc[data['value'] == data['value'].max()]['event'].iat[0],
+      'most_captained_player': most_picked_captain,
+      'num_times_captained': num_times_picked,
+      'points_from_captain': captain_points,
+      'percentage_captain_points': round((captain_points / total_points) * 100, 1),
+      'num_leagues_entered': len(team_info['leagues']['classic']) + len(team_info['leagues']['h2h']),
+      # num_times_h2h_scamp
+      # num_times_h2h_unlucky
+      'points_per_minute_max': round((total_points / squad_data['minutes'].sum()) * MAX_SQUAD_MINUTES, 3),
+      'points_per_minute_played': round(total_points / squad_data['minutes'].sum(), 3),
+      'num_unique_players': num_unique_players,
+      'points_scored_from_unique_players': differential_points,
+      'unique_points_perct_of_total': (differential_points / total_points) * 100,
+      'unique_players': unique_player_names,
+      'rank_last_season': last_season_rank,
+      'points_last_season': last_season_points,
+      'percentage_points_change_last_season': round(((total_points - last_season_points) / last_season_points) * 100, 2),
+      # total_apps_in_dreamteam
+      'total_minutes_fielded': squad_data['minutes'].sum(),
+      'total_num_red_cards': squad_data['red_cards'].sum(),
+      'total_num_yellow_cards': squad_data['yellow_cards'].sum(),
+      'total_minutes_perct_of_possible': round((squad_data['minutes'].sum() / MAX_SQUAD_MINUTES) * 100, 1),
+      # total_score_if_no_hits_taken
+      'worst_gw_rank': data['rank'].max(),
+      'worst_gw_rank_score': data[data['rank'] == data['rank'].max()]['points'].array[0],
+      'worst_gw_rank_gw': data.loc[data['rank'] == data['rank'].max()]['event'].array[0],
     }
 
-    gw_info = get_gw_info(id)
-    print(gw_info)
+    
+    # print(gw_info)
 
     # print(current)
   else:
-    name = player['player_name']
-    print(f'player {name} is not in both leagues')
+    print(f"player {player['player_name']} is not in both leagues")
 
   
   # %%
