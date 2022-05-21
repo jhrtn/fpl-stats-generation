@@ -228,6 +228,15 @@ bootstrap_data = requests.get(bootstrap_url).json()
 bootstrap_elements = bootstrap_data['elements']
 TOTAL_PLAYERS = bootstrap_data['total_players']
 
+h2h_ids = list(map(lambda manager: manager['entry'], h2h_results))
+classic_ids = list(map(lambda manager: manager['entry'], classic_reults))
+both_league_managers = list(set(h2h_ids) & set(classic_ids))
+
+#%%
+for m_id in both_league_managers:
+  generate_files(m_id)
+
+
 # %%
 # -====-====-====-====-====-====-====-====-
 # Main entry point for stats generation
