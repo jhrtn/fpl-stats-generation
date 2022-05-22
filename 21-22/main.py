@@ -208,25 +208,25 @@ def generate_files(id):
   data = get_gw_info(id)
   squad_data = get_full_squad_breakdown(id)
 
-def get_longest_h2h_win_streak(all_gameweeks, player_id):
-  player_res = all_gameweeks[all_gameweeks['id'] == player_id]
-  player_res = player_res.sort_values(['gw'])
-  player_res['won'] = (player_res['won_head_to_head'] == 'true').astype(bool)
-  m = player_res.won.astype(bool)
-  player_res['streak'] = (m.groupby([m, (~m).cumsum().where(m)]).cumcount().add(1).mul(m))
-  longest_streak_ends_gw = player_res[player_res['streak'] == player_res['streak'].max()]
+def get_h2h_streaks(h2h_res):
+  h2h_res = h2h_res.sort_values(['gw']) 
+  h2h_res['won'] = (h2h_res['win'] == 1).astype(bool)
+  h2h_res['lost'] = (h2h_res['loss'] == 1).astype(bool)
+  w = h2h_res.won.astype(bool)
+  l = h2h_res.lost.astype(bool)
+  h2h_res['streak'] = (w.groupby([w, (~w).cumsum().where(w)]).cumcount().add(1).mul(w))
+  h2h_res['l_streak'] = (l.groupby([l, (~l).cumsum().where(l)]).cumcount().add(1).mul(l))
+  longest_streak_ends_gw = h2h_res[h2h_res['streak'] == h2h_res['streak'].max()]
   run_length = longest_streak_ends_gw['streak'].array[0]
   end_gw = longest_streak_ends_gw['gw'].array[0]
   start_gw = end_gw - run_length + 1
-  data = {
-    'manager': name,
-    'player_id': player_id, 
-    'run_length': run_length,
-    'start_gw': start_gw,
-    'end_gw': end_gw
-  }
-  return data
-
+  
+  longest_l_streak_ends_gw = h2h_res[h2h_res['l_streak'] == h2h_res['l_streak'].max()]
+  l_run_length = longest_l_streak_ends_gw['l_streak'].array[0]
+  l_end_gw = longest_l_streak_ends_gw['gw'].array[0]
+  l_start_gw = l_end_gw - run_length + 1
+  
+  return run_length, start_gw, end_gw, l_run_length, l_start_gw, l_end_gw
 #%%
 # -====-====-====-====-====-====-====-====-
 # Get all global data to use in stats generation
