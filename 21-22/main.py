@@ -170,37 +170,43 @@ def get_captain_info(team_data):
   most_picked_captain = list(filter(lambda p: p['id'] == most_picked_captain_id, bootstrap_elements))[0]['web_name']
   return most_picked_captain, num_times_picked, captain_points
 
-def get_unique_squad_players(id, team_data, manager_ids):
-  # TODO: do some verification that all relavent files are in folder, 
-  # otherwise, use generate_files() to get them all
-
-  unique_player_ids = team_data['player_id'].drop_duplicates().tolist()
-  print(manager_ids)
-  manager_ids.remove(id)
-  for m_id in manager_ids:
+def get_unique_squad(id, squad_data, manager_ids):
+  m_players = squad_data['web_name'].drop_duplicates()
+  other_manager_players = []
+  to_loop = manager_ids[:]
+  print(to_loop)
+  if id in to_loop:
+    print('removing self from manager list')
+    to_loop.remove(id)
+  
+  for m_id in to_loop:
+    time.sleep(0.2)
     try:
-      f = open(get_team_info_path(m_id))
-      manager_team_info = pd.read_csv(f)
-      other_unique_players = manager_team_info['player_id'].drop_duplicates().tolist()
-      for this_player in other_unique_players:
-        if this_player in unique_player_ids:
-          unique_player_ids.remove(this_player)
+      path = os.path.abspath(get_team_info_path(m_id))
+      f = open(path)
+      others = pd.read_csv(f)['web_name'].drop_duplicates().tolist()
+      try:
+        other_manager_players.append(others)
+      except BaseException as err:
+        print(err)
     except:
       print(f"Could not open for id {m_id}")
-  
-  print(f"{len(unique_player_ids)} unique players")
-  mapped = list(filter(lambda p: p['id'] in unique_player_ids, bootstrap_elements))
-  mapped_names = list(map(lambda p: p['web_name'], mapped))
-  all = team_data[team_data['player_id'].isin(unique_player_ids)]
-  points_scoring = all[all['total_points'] > 0].drop_duplicates(subset=['player_id'])
-  print(f'{len(points_scoring)} points scoring unique players')
-  differential_points = team_data[team_data['player_id'].isin(unique_player_ids)]['total_points'].sum()
-  print(f'differentials scored {differential_points} points')
+  flat_data = pd.Series(sum(list(other_manager_players), [])).drop_duplicates()
+  unique_squad = []
+  for x in m_players:
+    if x not in flat_data.values:
+      unique_squad.append(x)
+  print(unique_squad)
+  print(len(unique_squad))
+  all = squad_data[squad_data['web_name'].isin(unique_squad)]
+  differential_points = all['total_points'].sum()
+  return unique_squad, differential_points
 
-  num_unique_players = len(unique_player_ids)
-  unique_player_names = ', '.join(mapped_names)
+def generate_files(id, name):
+  print(f"Generate for id {id}")
+  data = get_gw_info(id)
+  squad_data = get_full_squad_breakdown(id, name)
 
-  return num_unique_players, differential_points, unique_player_names
 def get_h2h_data(league_id):
   gw = 1
   results = []#pd.DataFrame()
@@ -261,10 +267,9 @@ def get_h2h_data(league_id):
       h2h_res
     )
 
-def generate_files(id):
-  print(f"Generate for id {id}")
-  data = get_gw_info(id)
-  squad_data = get_full_squad_breakdown(id)
+    gw += 1
+  
+  return results
 
 def get_h2h_streaks(h2h_res):
   h2h_res = h2h_res.sort_values(['gw']) 
