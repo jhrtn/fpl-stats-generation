@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import json
 import os
+import time
 
 # %%
 
@@ -293,6 +294,37 @@ def get_h2h_streaks(h2h_res):
   l_start_gw = l_end_gw - run_length + 1
   
   return run_length, start_gw, end_gw, l_run_length, l_start_gw, l_end_gw
+
+def get_h2h_table(h2h_data, h2h_table):
+  # TODO: what if knockout started sooner?
+  knockout = h2h_data[(h2h_data['gw'] == 37) & (h2h_data['is_knockout'] == True) & ((h2h_data['beaten_by']))]
+  if len(knockout) > 0:
+    p1, p2 = list(knockout['id'].astype(int))
+    p1_res = requests.get(f"https://fantasy.premierleague.com/api/entry/{p1}/history/").json()
+    p2_res = requests.get(f"https://fantasy.premierleague.com/api/entry/{p2}/history/").json()
+    p1_38_score = p1_res['current'][-1]['points'] - p1_res['current'][-1]['event_transfers_cost']
+    p2_38_score = p2_res['current'][-1]['points'] - p2_res['current'][-1]['event_transfers_cost']
+    # TODO: what if these scores are the same?
+    third_place_id = p1 if p1_38_score > p2_38_score else p2
+    fourth_place_id = p1 if third_place_id == p2 else p2
+    h2h_table = pd.DataFrame(h2h_table)
+    final_round = h2h_data[h2h_data['gw'] == 38]
+    first_id = final_round[final_round['beat_id']>0]['id'].astype(int).iat[0]
+    second_id = final_round[final_round['beaten_by_id']>0]['id'].astype(int).iat[0]
+    first = h2h_table[h2h_table['entry'] == first_id].copy()
+    second = h2h_table[h2h_table['entry'] == second_id].copy()
+    third = h2h_table[h2h_table['entry'] == third_place_id].copy()
+    fourth = h2h_table[h2h_table['entry'] == fourth_place_id].copy()
+    first['rank'] = 1
+    second['rank'] = 2
+    third['rank'] = 3
+    fourth['rank'] = 4
+    bottom_ranked = h2h_table[h2h_table['rank'] > 4]
+    full_table = pd.concat([bottom_ranked, fourth, third, second, first]).sort_values(['rank'])
+    return full_table
+  else:
+    return pd.DataFrame(h2h_table).sort_values(['rank'])
+
 #%%
 # -====-====-====-====-====-====-====-====-
 # Get all global data to use in stats generation
