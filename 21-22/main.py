@@ -382,12 +382,23 @@ for m_id in both_league_managers:
 # -====-====-====-====-====-====-====-====-
 # Main entry point for stats generation
 # -====-====-====-====-====-====-====-====-
-for index, player in enumerate(classic_reults):
-  id = player['entry']
+# h2h_result_data = get_h2h_data(h2h_league_id)
+names = list(map(lambda m: {'id': m['entry'], 'name': m['player_name']}, classic_results))
+df_data = pd.DataFrame()
 
-  if (list(map(lambda p: p['entry'] == id, h2h_results))):
-    if (index > 0): break
-    name = player['player_name']
+
+for index, player in enumerate(classic_results):
+  time.sleep(2)
+  print(' ')
+  # if (index > 2 ):
+  #   break 
+
+  id = player['entry']
+  name = player['player_name']
+
+  if (id in h2h_ids):
+      # print(f"skipping for {id} on index {index}")
+      # continue
     print(f'running for {name}')
     
     team_info = requests.get(f'https://fantasy.premierleague.com/api/entry/{id}/').json()
@@ -406,27 +417,63 @@ for index, player in enumerate(classic_reults):
       squad_data = pd.read_csv(f2)
     except:
       print("No file found, generating squad data")
-      squad_data = get_full_squad_breakdown(id)
+      squad_data = get_full_squad_breakdown(id, name)
 
     only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type, wildcard_data = get_chip_info(data)
 
     most_picked_captain, num_times_picked, captain_points = get_captain_info(squad_data)
     
-    num_unique_players, differential_points, unique_player_names = get_unique_squad_players(id, squad_data, both_league_managers)
+    # num_unique_players, differential_points, unique_player_names = get_unique_squad_players(id, squad_data, both_league_managers)
 
-    
+    unique_squad, differential_points = get_unique_squad(id, squad_data, both_league_managers)
+    num_unique_players = len(unique_squad)
+    unique_player_names = ", ".join(unique_squad)
+
     manager_history = requests.get(f'https://fantasy.premierleague.com/api/entry/{id}/history/#/').json()
     past_leagues = manager_history['past']
+
+    flat_h2h_res = pd.DataFrame(sum(list(h2h_result_data), []))
+    my_h2h_results = flat_h2h_res[flat_h2h_res['id'] == id]
+
+    run_length, start_gw, end_gw, l_run_length, l_start_gw, l_end_gw = get_h2h_streaks(my_h2h_results)
     
-    # check whether this season has already been added, if so this should be 1
+    acc_h2h_table = get_h2h_table(flat_h2h_res, h2h_results)
+
+    beaten_most_h2h = my_h2h_results[(my_h2h_results['beat_id'] > 0) & (my_h2h_results['draw'] != 1)]['beat'].value_counts()
+    beat_most_num = beaten_most_h2h[beaten_most_h2h == beaten_most_h2h.max()].values[0]
+    beat_most_names = ', '.join(list(beaten_most_h2h[beaten_most_h2h == beaten_most_h2h.max()].keys()))
+        
+    beaten_by_most_h2h = my_h2h_results[(my_h2h_results['beaten_by_id'] > 0) & (my_h2h_results['draw'] != 1)]['beaten_by'].value_counts()
+    beat_by_most_num = beaten_by_most_h2h[beaten_by_most_h2h == beaten_by_most_h2h.max()].values[0]
+    beat_by_most_names = ', '.join(list(beaten_by_most_h2h[beaten_by_most_h2h == beaten_by_most_h2h.max()].keys()))
+
+    players_played = squad_data.drop_duplicates(subset=['player_id'])
+    num_players_played = len(players_played)
+    top_3 = squad_data['web_name'].value_counts()[:3]
+    top_3_players = ', '.join(top_3.index.tolist())
+    top_3_player_apps = ", ".join(str(i) for i in top_3.values.tolist())
+    bottom_players_df = squad_data['web_name'].value_counts()[squad_data['web_name'].value_counts() == squad_data['web_name'].value_counts().min()]
+    bottom_players_apps = bottom_players_df[0]
+    bottom_players = ", ".join(bottom_players_df[-3:].index.tolist())
+    bototm_players_count = len(bottom_players_df)
+
+    all_gw_table = reconstruct_gw_tables(both_league_managers, names)
+    my_gw_table = all_gw_table[all_gw_table['player_id'] == id]
+    league_best_rank = my_gw_table['league_rank'].sort_values().min()
+    league_best_rank_duration = len(my_gw_table[my_gw_table['league_rank'] == league_best_rank])
+    league_worst_rank = my_gw_table['league_rank'].sort_values().max()
+    league_worst_rank_duration = len(my_gw_table[my_gw_table['league_rank'] == league_worst_rank])
+
+    # TODO: check whether this season has already been added, if so this should be 1
     if len(past_leagues) == 0:
-      last_season_points = 0
-      last_season_rank = 0
+      last_season_points = -1
+      last_season_rank = -1
     else:
-      # if league hasn't yet been added these should be -1
+      # TODO: if league hasn't yet been added these should be -1
       # or search by season_name '2020/21'
-      last_season_points = past_leagues[-2]['total_points']
-      last_season_rank = past_leagues[-2]['rank']
+
+      last_season_points = past_leagues[-1]['total_points']
+      last_season_rank = past_leagues[-1]['rank']
 
     total_points = team_info['summary_overall_points']
 
@@ -434,10 +481,14 @@ for index, player in enumerate(classic_reults):
       'manager': name,
       'player_id': id,
       'team_name': player['entry_name'],
+      'classic_league_name': classic_data['league']['name'],
+      'h2h_league_name': h2h_data['league']['name'],
+      'num_h2h_entrants': len(h2h_results),
+      'num_classic_entrants': len(classic_results),
       'total_score': total_points,
       'final_overall_rank': team_info['summary_overall_rank'],
       'final_main_league_rank': list(filter(lambda league: league['id'] == classic_league_id, team_info['leagues']['classic']))[0]['entry_rank'],
-      'final_h2h_league_rank': list(filter(lambda league: league['id'] == h2h_league_id, team_info['leagues']['h2h']))[0]['entry_rank'],
+      'final_h2h_league_rank': acc_h2h_table[acc_h2h_table['entry'] == id]['rank'].item(),
       'best_rank': data['overall_rank'].min(),
       'best_rank_gw': data.loc[data['overall_rank'] == data['overall_rank'].min()]['event'].array[0],
       'transfer_count': data['event_transfers'].sum(),
@@ -460,14 +511,22 @@ for index, player in enumerate(classic_reults):
       'last_chip': last_chip_type,
       'last_chip_gw': last_chip_gw,
       'num_chips_played': len(only_chip_weeks),
-      # 'global_rank_percentage': check_position_percentage(data['overall_rank'].iat[37], TOTAL_PLAYERS),
-      # h2h_draw
-      # h2h_loss
-      # h2h_win
-      # h2h_wld
-      # longest_h2h_winning_streak
-      # longest_h2h_winning_streak_end_gw
-      # longest_h2h_winning_streak_start_gw
+      'global_rank_percentage': check_position_percentage(data['overall_rank'].iat[37], TOTAL_PLAYERS),
+      'h2h_entries': len(my_h2h_results),
+      'h2h_win': my_h2h_results['win'].sum(),
+      'h2h_loss': my_h2h_results['loss'].sum(),
+      'h2h_draw': my_h2h_results['draw'].sum(),
+      'h2h_wld': f"W{my_h2h_results['win'].sum()} L{my_h2h_results['loss'].sum()} D{my_h2h_results['draw'].sum()}",
+      'longest_h2h_winning_streak': run_length,
+      'longest_h2h_winning_streak_end_gw': start_gw,
+      'longest_h2h_winning_streak_start_gw': end_gw,
+      'longest_h2h_losing_streak': l_run_length,
+      'longest_h2h_losing_streak_end_gw': l_start_gw,
+      'longest_h2h_losing_streak_start_gw': l_end_gw,
+      'h2h_beat_most_num': beat_most_num,
+      'h2h_beat_most_names': beat_most_names,
+      'h2h_beat_by_most_num': beat_by_most_num,
+      'h2h_beat_by_most_names': beat_by_most_names,
       'max_team_value': data['value'].max(),
       'max_team_value_formatted': str(data['value'].max() / 10) + 'M',
       'max_team_value_gw': data.loc[data['value'] == data['value'].max()]['event'].iat[0],
@@ -476,8 +535,6 @@ for index, player in enumerate(classic_reults):
       'points_from_captain': captain_points,
       'percentage_captain_points': round((captain_points / total_points) * 100, 1),
       'num_leagues_entered': len(team_info['leagues']['classic']) + len(team_info['leagues']['h2h']),
-      # num_times_h2h_scamp
-      # num_times_h2h_unlucky
       'points_per_minute_max': round((total_points / squad_data['minutes'].sum()) * MAX_SQUAD_MINUTES, 3),
       'points_per_minute_played': round(total_points / squad_data['minutes'].sum(), 3),
       'num_unique_players': num_unique_players,
@@ -496,14 +553,41 @@ for index, player in enumerate(classic_reults):
       'worst_gw_rank': data['rank'].max(),
       'worst_gw_rank_score': data[data['rank'] == data['rank'].max()]['points'].array[0],
       'worst_gw_rank_gw': data.loc[data['rank'] == data['rank'].max()]['event'].array[0],
+      'top_3_players': top_3_players,
+      'top_3_player_apps': top_3_player_apps,
+      'num_players_played': num_players_played,
+      'bottom_players_apps': bottom_players_apps,
+      'bottom_players': bottom_players,
+      'bototm_players_count': bototm_players_count,
+      'league_best_rank': league_best_rank,
+      'league_best_rank_duration': league_best_rank_duration,
+      'league_worst_rank': league_worst_rank,
+      'league_worst_rank_duration': league_worst_rank_duration,
     }
 
     
-    # print(gw_info)
+    single_player_data = pd.DataFrame(current, index=[0])
+    df_data = df_data.append(current, ignore_index=True)
 
-    # print(current)
+    print('wrting data for ' + name + ' | ' + str(id))
+
+    outdir = f'data/{classic_league_id}/{name}'
+    if not (os.path.exists(outdir)):
+      os.makedirs(outdir)
+    full_path = os.path.join(outdir, str(id) + '_info' + '.csv')
+    single_player_data.to_csv(full_path, index=False, float_format="%.10g")
+  
   else:
-    print(f"player {player['player_name']} is not in both leagues")
+    print(f"{name} {id} not in both leagues")
+
+  outdir = f'data/{classic_league_id}'
+  if not (os.path.exists(outdir)):
+    os.makedirs(outdir)
+  full_path = os.path.join(outdir, 'competition_data_2' + '.csv')
+  df_data.to_csv(full_path, index=False, float_format="%.10g")
+  
+
+    
 
   
   # %%
