@@ -325,6 +325,29 @@ def get_h2h_table(h2h_data, h2h_table):
   else:
     return pd.DataFrame(h2h_table).sort_values(['rank'])
 
+def reconstruct_gw_tables(ids, names):
+  table = pd.DataFrame()
+  for idx, id in enumerate(ids):
+    manager_name = list(filter(lambda n: n['id'] == id, names))[0]['name']
+    manager_history = requests.get(f'https://fantasy.premierleague.com/api/entry/{id}/history/#/').json()['current']
+    try:
+      df = pd.DataFrame(manager_history)
+      df['player_id'] = id
+      df['name'] = manager_name
+      table = table.append(df)
+    except BaseException as err:
+      print(err)
+  
+  ranked_table = pd.DataFrame()
+  gw_num = 1
+  while gw_num <= 38:
+    gw_table = table[table['event'] == gw_num].sort_values('total_points', ignore_index=True, ascending=False)
+    gw_table['league_rank'] = (gw_table.index + 1)
+    gw_num += 1
+    ranked_table = ranked_table.append(gw_table)
+  
+  return ranked_table
+
 #%%
 # -====-====-====-====-====-====-====-====-
 # Get all global data to use in stats generation
