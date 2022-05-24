@@ -28,7 +28,7 @@ def get_gw_info(player_id):
         gw['used_chip'] = chip['name']
   
   if not (os.path.exists(BASE_DIR)):
-    os.mkdir(BASE_DIR)
+    os.makedirs(BASE_DIR)
   full_path = os.path.join(BASE_DIR, str(player_id) + GW_INFO_EXT)
   df = pd.DataFrame(current)
   df.to_csv(full_path, index=False)
@@ -72,12 +72,11 @@ def calc_captain_points(player_id):
 
   return captain_points
 
-def get_full_squad_breakdown(player_id):
-  cols = ['manager', 'manager_id', 'gw', 'total_points', 'first_name', 'last_name', 'team_name', 'in_dreamteam', 'minutes', 'goals_scored', 'clean_sheet', 'is_captain', 'player_id', 'team_id', 'red_cards', 'yellow_cards']
+def get_full_squad_breakdown(player_id, name):
   teams = bootstrap_data['teams']
   gw = 1
   df = pd.DataFrame()
-  while gw <= 8:
+  while gw <= 38:
     squad = requests.get(f'https://fantasy.premierleague.com/api/entry/{player_id}/event/{gw}/picks/#/').json()
     played_players = list(filter(lambda element: element['multiplier'] > 0, squad['picks']))
     played_players_list = []
@@ -105,13 +104,14 @@ def get_full_squad_breakdown(player_id):
         'is_captain': player['multiplier'] > 1,
         'team_id': player_detail['team'],
         'team_name': list(filter(lambda team: team['id'] == player_detail['team'], teams))[0]['name'],
+        'web_name': player_detail['web_name']
       }
       df = df.append(played_players_list, ignore_index=True)
     gw += 1
   
   
   if not (os.path.exists(BASE_DIR)):
-    os.mkdir(BASE_DIR)
+    os.makedirs(BASE_DIR)
   full_path = os.path.join(BASE_DIR, str(player_id) + TEAM_INFO_EXT)
   df.to_csv(full_path, index=False)
 
@@ -122,6 +122,12 @@ def get_team_info_path(id): return f'{BASE_DIR}/{id}{TEAM_INFO_EXT}'
 
 def get_chip_info(gw_data):
   only_chip_weeks = 0
+  wildcard_data = {
+    'avg_before_wildcard': None,
+    'avg_after_wildcard': None,
+    'diff': None,
+    'perct_change': None
+  }
   # manager used a chip
   if 'used_chip' in gw_data:
     only_chip_weeks = gw_data[gw_data['used_chip'].notnull()]
@@ -141,8 +147,6 @@ def get_chip_info(gw_data):
         avg_before_wildcard = round(gw_data[gw_index-gw_count:gw_index]['points'].mean(),1)
         avg_after_wildcard = round(gw_data[gw_index:gw_index+gw_count]['points'].mean(), 1)
         wildcard_data = {
-          'name': name, 
-          'gw': gw, 
           f'avg_before_wildcard': avg_before_wildcard, 
           f'avg_after_wildcard': avg_after_wildcard,
           'diff': avg_after_wildcard - avg_before_wildcard,
@@ -280,13 +284,12 @@ def get_h2h_streaks(h2h_res):
   h2h_res['streak'] = (w.groupby([w, (~w).cumsum().where(w)]).cumcount().add(1).mul(w))
   h2h_res['l_streak'] = (l.groupby([l, (~l).cumsum().where(l)]).cumcount().add(1).mul(l))
   longest_streak_ends_gw = h2h_res[h2h_res['streak'] == h2h_res['streak'].max()]
-  run_length = longest_streak_ends_gw['streak'].array[0]
-  end_gw = longest_streak_ends_gw['gw'].array[0]
+  run_length = longest_streak_ends_gw['streak'].values[0]
+  end_gw = longest_streak_ends_gw['gw'].values[0]
   start_gw = end_gw - run_length + 1
-  
   longest_l_streak_ends_gw = h2h_res[h2h_res['l_streak'] == h2h_res['l_streak'].max()]
-  l_run_length = longest_l_streak_ends_gw['l_streak'].array[0]
-  l_end_gw = longest_l_streak_ends_gw['gw'].array[0]
+  l_run_length = longest_l_streak_ends_gw['l_streak'].values[0]
+  l_end_gw = longest_l_streak_ends_gw['gw'].values[0]
   l_start_gw = l_end_gw - run_length + 1
   
   return run_length, start_gw, end_gw, l_run_length, l_start_gw, l_end_gw
@@ -302,8 +305,8 @@ h2h_league_url = f'https://fantasy.premierleague.com/api/leagues-h2h/{h2h_league
 bootstrap_url = 'https://fantasy.premierleague.com/api/bootstrap-static/#/'
 
 classic_data = requests.get(league_url).json()
-h2h_data = requests.get(league_url).json()
-classic_reults = classic_data['standings']['results']
+h2h_data = requests.get(h2h_league_url).json()
+classic_results = classic_data['standings']['results']
 h2h_results = h2h_data['standings']['results']
 
 bootstrap_data = requests.get(bootstrap_url).json()
@@ -311,12 +314,13 @@ bootstrap_elements = bootstrap_data['elements']
 TOTAL_PLAYERS = bootstrap_data['total_players']
 
 h2h_ids = list(map(lambda manager: manager['entry'], h2h_results))
-classic_ids = list(map(lambda manager: manager['entry'], classic_reults))
+classic_ids = list(map(lambda manager: manager['entry'], classic_results))
 both_league_managers = list(set(h2h_ids) & set(classic_ids))
 
 #%%
 for m_id in both_league_managers:
-  generate_files(m_id)
+  name = list(filter(lambda m: m['entry'] == m_id, classic_results))[0]['player_name']
+  generate_files(m_id, name)
 
 
 # %%
