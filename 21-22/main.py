@@ -201,7 +201,65 @@ def get_unique_squad_players(id, team_data, manager_ids):
   unique_player_names = ', '.join(mapped_names)
 
   return num_unique_players, differential_points, unique_player_names
+def get_h2h_data(league_id):
+  gw = 1
+  results = []#pd.DataFrame()
+  
+  while gw <= 38:
+    print(f"fetching h2h gw {gw}")
+    time.sleep(1)
+    url = f'https://fantasy.premierleague.com/api/leagues-h2h-matches/league/{league_id}/?event={gw}'
+    gw_results = requests.get(url).json()
+    
+    h2h_res = []
+    for result in gw_results['results']:
+      p1_score = result['entry_1_points']
+      p2_score = result['entry_2_points']
+      was_draw = p1_score == p2_score
+      p1_name = result['entry_1_player_name']
+      p2_name = result['entry_2_player_name']
+      p1_id = result['entry_1_entry']
+      p2_id = result['entry_2_entry']
 
+      if not was_draw:
+        p1_won = True if p1_score > p2_score else False
+        
+
+      h2h_res.append({
+        'id': result['entry_1_entry'],
+        'points': result['entry_1_points'],
+        'win': result['entry_1_win'],
+        'loss': result['entry_1_loss'],
+        'draw': result['entry_1_draw'],
+        'total_points': result['entry_1_total'],
+        'is_bye': result['is_bye'],
+        'is_knockout': result['is_knockout'],
+        'gw': gw,
+        'beaten_by': p2_name if not p1_won else None,
+        'beaten_by_id': p2_id if not p1_won else None,
+        'beat': p2_name if p1_won else None,
+        'beat_id': p2_id if p1_won else None
+      })
+
+      h2h_res.append({
+        'id': result['entry_2_entry'],
+        'points': result['entry_2_points'],
+        'win': result['entry_2_win'],
+        'loss': result['entry_2_loss'],
+        'draw': result['entry_2_draw'],
+        'total_points': result['entry_2_total'],
+        'is_bye': result['is_bye'],
+        'is_knockout': result['is_knockout'],
+        'gw': gw,
+        'beaten_by': p1_name if p1_won else None,
+        'beaten_by_id': p1_id if p1_won else None,
+        'beat': p1_name if not p1_won else None,
+        'beat_id': p1_id if not p1_won else None
+      })
+    
+    results.append(
+      h2h_res
+    )
 
 def generate_files(id):
   print(f"Generate for id {id}")
