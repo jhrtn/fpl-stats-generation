@@ -80,7 +80,7 @@ for i, j in data.iterrows():
   
   para_three = f"You made {j['transfer_count']} transfers in total, taking a hit of -{j['transfer_hit']} points along the way. Your players netted you {j['total_num_red_cards']} red cards and {j['total_num_yellow_cards']} yellow cards over the course of the season. Players in your squad appeared in the dream team {j['total_apps_in_dreamteam']} times. That's {diff_to_avg_dreamteam_apps}% {more_or_less_dreamteam} than the {league_name} average."
   
-  para_four = f"You captained {j['most_captained_player']} the most, giving him the armband for {j['num_times_captained']} of 38 gameweeks. Across the whole season you scored {j['points_from_captain']} points from your captain picks, {j['percentage_captain_points']}% of your total points. You selected {j['num_unique_players']} players who no one else in {league_name} picked: {j['unique_players']}. They provided {round(j['points_scored_from_unique_players'] / j['total_score'] * 100, 1)}% of your total score."
+  para_four = f"You captained {j['most_captained_players']} the most, giving them the armband {j['num_times_captained']} times of the 38 gameweeks. Across the whole season you scored {j['points_from_captain']} points from your captain picks, {j['percentage_captain_points']}% of your total points. You selected {j['num_unique_players']} players who no one else in {league_name} picked: {j['unique_players']}. They provided {round(j['points_scored_from_unique_players'] / j['total_score'] * 100, 1)}% of your total score."
   
   para_five = f"{j['num_players_played']} different players appeared in your squad across the season. Your most selected players were {j['top_3_players']} who appeared in your squad {j['top_3_player_apps']} times respectively."
   
