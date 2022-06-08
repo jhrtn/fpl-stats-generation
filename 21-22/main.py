@@ -170,10 +170,10 @@ def get_captain_info(team_data):
   captain_points = sum(list(map(lambda p: p[0] * p[1], cap_points_zip)))
   
   captains = team_data[team_data['is_captain'] == True]
-  most_picked_captain_id = captains['player_id'].value_counts().index[0]
-  num_times_picked = captains['player_id'].value_counts().tolist()[0]
-  most_picked_captain = list(filter(lambda p: p['id'] == most_picked_captain_id, bootstrap_elements))[0]['web_name']
-  return most_picked_captain, num_times_picked, captain_points
+  top_three = captains['web_name'].value_counts()[:3]
+  top_three_times_picked = ", ".join(map(str, list(top_three.values)))
+  top_three_names = ", ".join(top_three.keys())
+  return top_three_names, top_three_times_picked, captain_points
 
 def get_unique_squad(id, squad_data, manager_ids):
   m_players = squad_data['web_name'].drop_duplicates()
@@ -421,10 +421,8 @@ for index, player in enumerate(classic_results):
 
     only_chip_weeks, first_chip, first_chip_gw, chip_type, last_chip, last_chip_gw, last_chip_type, wildcard_data = get_chip_info(data)
 
-    most_picked_captain, num_times_picked, captain_points = get_captain_info(squad_data)
+    top_three_names, top_three_times_picked, captain_points = get_captain_info(squad_data)
     
-    # num_unique_players, differential_points, unique_player_names = get_unique_squad_players(id, squad_data, both_league_managers)
-
     unique_squad, differential_points = get_unique_squad(id, squad_data, both_league_managers)
     num_unique_players = len(unique_squad)
     unique_player_names = ", ".join(unique_squad)
@@ -530,8 +528,8 @@ for index, player in enumerate(classic_results):
       'max_team_value': data['value'].max(),
       'max_team_value_formatted': str(data['value'].max() / 10) + 'M',
       'max_team_value_gw': data.loc[data['value'] == data['value'].max()]['event'].iat[0],
-      'most_captained_player': most_picked_captain,
-      'num_times_captained': num_times_picked,
+      'most_captained_players': top_three_names,
+      'num_times_captained': top_three_times_picked,
       'points_from_captain': captain_points,
       'percentage_captain_points': round((captain_points / total_points) * 100, 1),
       'num_leagues_entered': len(team_info['leagues']['classic']) + len(team_info['leagues']['h2h']),
@@ -564,7 +562,6 @@ for index, player in enumerate(classic_results):
       'league_worst_rank': league_worst_rank,
       'league_worst_rank_duration': league_worst_rank_duration,
     }
-
     
     single_player_data = pd.DataFrame(current, index=[0])
     df_data = df_data.append(current, ignore_index=True)
