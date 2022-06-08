@@ -3,7 +3,6 @@ from pprint import pprint
 import requests
 import pandas as pd
 import numpy as np
-import json
 import os
 import time
 
@@ -227,8 +226,8 @@ def get_h2h_data(league_id):
       p1_score = result['entry_1_points']
       p2_score = result['entry_2_points']
       was_draw = p1_score == p2_score
-      p1_name = result['entry_1_player_name']
-      p2_name = result['entry_2_player_name']
+      p1_name = result['entry_1_player_name'].title()
+      p2_name = result['entry_2_player_name'].title()
       p1_id = result['entry_1_entry']
       p2_id = result['entry_2_entry']
 
@@ -374,27 +373,28 @@ both_league_managers = list(set(h2h_ids) & set(classic_ids))
 
 #%%
 for m_id in both_league_managers:
-  name = list(filter(lambda m: m['entry'] == m_id, classic_results))[0]['player_name']
+  name = list(filter(lambda m: m['entry'] == m_id, classic_results))[0]['player_name'].title()
   generate_files(m_id, name)
 
+
+# %%
+# Only need to do this once at the start of stats gen
+h2h_result_data = get_h2h_data(h2h_league_id)
 
 # %%
 # -====-====-====-====-====-====-====-====-
 # Main entry point for stats generation
 # -====-====-====-====-====-====-====-====-
-# h2h_result_data = get_h2h_data(h2h_league_id)
-names = list(map(lambda m: {'id': m['entry'], 'name': m['player_name']}, classic_results))
+names = list(map(lambda m: {'id': m['entry'], 'name': m['player_name'].title()}, classic_results))
 df_data = pd.DataFrame()
 
 
 for index, player in enumerate(classic_results):
-  time.sleep(2)
+  time.sleep(0.5)
   print(' ')
-  # if (index > 2 ):
-  #   break 
-
+  
   id = player['entry']
-  name = player['player_name']
+  name = player['player_name'].title()
 
   if (id in h2h_ids):
       # print(f"skipping for {id} on index {index}")
