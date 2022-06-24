@@ -470,15 +470,15 @@ for index, player in enumerate(classic_results):
     league_worst_rank_duration = len(my_gw_table[my_gw_table['league_rank'] == league_worst_rank])
 
     # TODO: check whether this season has already been added, if so this should be 1
-    if len(past_leagues) == 0:
+    if len(past_leagues) <= 1:
       last_season_points = -1
       last_season_rank = -1
     else:
       # TODO: if league hasn't yet been added these should be -1
       # or search by season_name '2020/21'
-
-      last_season_points = past_leagues[-1]['total_points']
-      last_season_rank = past_leagues[-1]['rank']
+      last_season = list(filter(lambda season: season['season_name'] == '2020/21', past_leagues))[0]
+      last_season_points = last_season['total_points']
+      last_season_rank = last_season['rank']
 
     total_points = team_info['summary_overall_points']
 
