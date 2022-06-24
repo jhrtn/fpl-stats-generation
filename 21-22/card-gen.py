@@ -58,9 +58,9 @@ league_name = data['classic_league_name'][0]
 h2h_name = data['h2h_league_name'][0]
 total_players = 9167407
 num_chips = 6 #this is usually 5, extra free hit this season
+league_avg_benched_points = round(data['points_on_bench'].mean(), 1)
 
 for i, j in data.iterrows():
-  # if (i > 0): break
   diff_to_gw_avg = round((j['avg_gw_score'] - league_avg) / abs(league_avg) * 100, 1)
   more_or_less = "more" if diff_to_gw_avg >= 0 else "less"
   diff_to_avg_dreamteam_apps = round((j['total_apps_in_dreamteam'] - league_avg_dreamteam_apps) / league_avg_dreamteam_apps * 100, 1)
@@ -70,7 +70,10 @@ for i, j in data.iterrows():
   increase_or_decrease = "increase" if diff_from_last_season > 0 else "decrease"
   best_gw_rank_league_pos = data.sort_values('best_gw_rank', ignore_index=True)
   bst_gw_rank_league  = best_gw_rank_league_pos[best_gw_rank_league_pos['best_gw_rank']==j['best_gw_rank']].index.item() + 1
-  
+  avg_captain_points = round(j['points_from_captain'] / 38, 1)
+  benched_points_diff = abs(round(j['points_on_bench'] - league_avg_benched_points, 1))
+  benched_higher_or_lower = "above" if j['points_on_bench'] > league_avg_benched_points else "below"
+
   print(j['manager'])
   # if j['manager'] != 'Joseph Horton':
   #   break
@@ -80,7 +83,7 @@ for i, j in data.iterrows():
   
   para_three = f"You made {j['transfer_count']} transfers in total, taking a hit of -{j['transfer_hit']} points along the way. Your players netted you {j['total_num_red_cards']} red cards and {j['total_num_yellow_cards']} yellow cards over the course of the season. Players in your squad appeared in the dream team {j['total_apps_in_dreamteam']} times. That's {diff_to_avg_dreamteam_apps}% {more_or_less_dreamteam} than the {league_name} average."
   
-  para_four = f"You captained {j['most_captained_players']} the most, giving them the armband {j['num_times_captained']} times of the 38 gameweeks. Across the whole season you scored {j['points_from_captain']} points from your captain picks, {j['percentage_captain_points']}% of your total points. You selected {j['num_unique_players']} players who no one else in {league_name} picked: {j['unique_players']}. They provided {round(j['points_scored_from_unique_players'] / j['total_score'] * 100, 1)}% of your total score."
+  para_four = f"You captained {j['most_captained_players']} the most, giving them the armband {j['num_times_captained']} times of the 38 gameweeks. Across the whole season you scored {j['points_from_captain']} points from your captain picks, {j['percentage_captain_points']}% of your total points, {avg_captain_points} points per GW on average. You selected {j['num_unique_players']} players who no one else in {league_name} picked: {j['unique_players']}. They provided {round(j['points_scored_from_unique_players'] / j['total_score'] * 100, 1)}% of your total score."
   
   para_five = f"{j['num_players_played']} different players appeared in your squad across the season. Your most selected players were {j['top_3_players']} who appeared in your squad {j['top_3_player_apps']} times respectively."
   
@@ -88,7 +91,7 @@ for i, j in data.iterrows():
   
   para_seven = get_chips_line(j)
 
-  para_eight = f"You missed out on {j['points_on_bench']} points from your benched players. This peaked in gameweek {j['points_on_bench_max_gw']} when there were {j['points_on_bench_max']} points on your bench. You were hoarding cash in GW{j['most_cash_banked_gw']} when you had {j['most_cash_banked_formatted']} in the bank. Your squad value peaked in GW{j['max_team_value_gw']} when it was worth {j['max_team_value_formatted']}."
+  para_eight = f"You missed out on {j['points_on_bench']} points from your benched players. {benched_points_diff}pts {benched_higher_or_lower} the league average of {league_avg_benched_points}. This peaked in gameweek {j['points_on_bench_max_gw']} when there were {j['points_on_bench_max']} points on your bench. You were hoarding cash in GW{j['most_cash_banked_gw']} when you had {j['most_cash_banked_formatted']} in the bank. Your squad value peaked in GW{j['max_team_value_gw']} when it was worth {j['max_team_value_formatted']}."
   
   to_push = {
     "manager": j['manager'].split(' ')[0],
